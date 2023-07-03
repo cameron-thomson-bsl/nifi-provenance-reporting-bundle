@@ -4,7 +4,10 @@
 ##
 
 name: Dependabot-Reviewer
-on: pull_request_target
+on:
+  - pull_request_target
+  # Allow workflow to be triggered manually.
+  - workflow_dispatch
 
 permissions:
   pull-requests: write
