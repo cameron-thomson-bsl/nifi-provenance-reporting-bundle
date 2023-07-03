@@ -8,7 +8,19 @@ The changelog is applicable from version `1.0.0` onwards.
 
 ---
 
-## [Unrelease] - YYYY-MM-DD
+## [Unreleased] - YYYY-MM-DD
+
+### Added
+
+### Fixed
+
+### Changed
+
+[Commits](https://github.com/brightsparklabs/appcli/compare/2.0.0...)
+
+---
+
+## [2.0.0] - 2023-07-04
 
 ### Added
 
@@ -16,11 +28,11 @@ The changelog is applicable from version `1.0.0` onwards.
 - APED-20: Added gradle-baseline support.
 - APED-23: Support dependabot updates.
 
-[Commits](https://github.com/brightsparklabs/appcli/compare/1.0.0...)
+[Commits](https://github.com/brightsparklabs/appcli/compare/1.0.0...2.0.0)
 
 ---
 
-## [1.0.0] - 2023-07-04
+## [1.0.0] - 2023-07-03
 
 ### Added
 
@@ -35,7 +47,9 @@ The changelog is applicable from version `1.0.0` onwards.
 
 ---
 
-## [TEMPLATE] - YYYY-MM-DD
+# Template
+
+## [Unreleased] - YYYY-MM-DD
 
 ### Added
 
@@ -43,6 +57,6 @@ The changelog is applicable from version `1.0.0` onwards.
 
 ### Changed
 
-[Commits](https://github.com/brightsparklabs/appcli/compare/1.0.0...)
+[Commits](https://github.com/brightsparklabs/appcli/compare/2.0.0...)
 
 ---
