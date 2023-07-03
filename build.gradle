@@ -8,6 +8,8 @@
 // -----------------------------------------------------------------------------
 
 plugins {
+    // Apply the brightSPARK Labs plugin for standardisation.
+    id 'com.brightsparklabs.gradle.baseline' version '4.1.0'
     // Apply the Java Library plugin.
     id 'java-library'
     // Apply the Gradle nar plugin to build the .nar file.
@@ -36,14 +38,14 @@ repositories {
 // -----------------------------------------------------------------------------
 
 ext {
-    NIFI_VERSION = "1.9.2"
+    NIFI_VERSION = "1.22.0"
 }
 
 dependencies {
-    api "org.apache.nifi:nifi-processor-utils:${NIFI_VERSION}"
-    api 'co.elastic.clients:elasticsearch-java:8.8.1'
+    api "org.apache.nifi:nifi-utils:${NIFI_VERSION}"
+    api 'co.elastic.clients:elasticsearch-java:8.8.2'
     api 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
-    api 'com.squareup.okhttp:okhttp:2.7.1'
+    api 'com.squareup.okhttp:okhttp:2.7.5'
     compileOnly "org.apache.nifi:nifi-api:${NIFI_VERSION}"
 }
 
@@ -51,18 +53,44 @@ dependencies {
 // JAVA VERSION
 // -----------------------------------------------------------------------------
 
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
+sourceCompatibility = 17
+targetCompatibility = 17
 
 // -----------------------------------------------------------------------------
 // PROJECT IDENTIFICATION
 // -----------------------------------------------------------------------------
 
 project.description = 'NiFi bundle for reporting provenance data.'
-project.group = 'com.brightsparklabs'
-project.version = 'git describe --dirty --always'.execute().text.trim()
 project.ext.url = 'https://github.com/brightsparklabs/nifi-provenance-reporting-bundle'
 project.ext.scm = 'scm:git@github.com:brightsparklabs/nifi-provenance-reporting-bundle.git'
+
+// -----------------------------------------------------------------------------
+// SETUP BASELINE PLUGIN
+// -----------------------------------------------------------------------------
+
+bslBaseline {
+    licenseHeader = """/*
+                      | * Maintained by brightSPARK Labs.
+                      | * www.brightsparklabs.com
+                      | * _____________________________________________________________________________
+                      | *
+                      | * Licensed to the Apache Software Foundation (ASF) under one or more
+                      | * contributor license agreements.  See the NOTICE file distributed with
+                      | * this work for additional information regarding copyright ownership.
+                      | * The ASF licenses this file to You under the Apache License, Version 2.0
+                      | * (the "License"); you may not use this file except in compliance with
+                      | * the License.  You may obtain a copy of the License at
+                      | *
+                      | *     http://www.apache.org/licenses/LICENSE-2.0
+                      | *
+                      | * Unless required by applicable law or agreed to in writing, software
+                      | * distributed under the License is distributed on an "AS IS" BASIS,
+                      | * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+                      | * See the License for the specific language governing permissions and
+                      | * limitations under the License.
+                      | */
+        """.stripMargin("|")
+}
 
 // -----------------------------------------------------------------------------
 // SETUP ARTIFACTS FOR PUBLISHING

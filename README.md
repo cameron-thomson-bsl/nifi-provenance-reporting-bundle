@@ -1,4 +1,5 @@
 [![Build Status](https://github.com/brightsparklabs/nifi-provenance-reporting-bundle/actions/workflows/test.yml/badge.svg)](https://github.com/brightsparklabs/nifi-provenance-reporting-bundle/actions/workflows/test.yml)
+[![Maven](https://img.shields.io/maven-central/v/com.brightsparklabs/nifi-provenance-reporting-nar)](https://search.maven.org/artifact/com.brightsparklabs/nifi-provenance-reporting-nar)
 
 # nifi-provenance-reporting-bundle
 
@@ -6,11 +7,17 @@ NiFi provenance reporting tasks.
 
 ## Table of Contents
 
+- [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Tasks](#tasks)
     - [ElasticsearchProvenanceReporter](#elasticsearchprovenancereporter)
     - [HttpProvenanceReporter](#httpprovenancereporter)
 - [Todo](#todo)
+
+## Prerequisites
+
+* Java 17
+* NiFi 1.22.0
 
 ## Installation
 
