@@ -98,7 +98,7 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
                     .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
                     .build();
 
-    /** The username for Elasticsearch authentication. Required for HTTPS */
+    /** The username for Elasticsearch authentication. Required for HTTPS. */
     public static final PropertyDescriptor ELASTICSEARCH_USERNAME =
             new PropertyDescriptor.Builder()
                     .name("Elasticsearch Username")
