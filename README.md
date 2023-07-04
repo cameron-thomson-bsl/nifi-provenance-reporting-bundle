@@ -11,8 +11,8 @@ NiFi provenance reporting tasks.
 - [Installation](#installation)
 - [Tasks](#tasks)
     - [ElasticsearchProvenanceReporter](#elasticsearchprovenancereporter)
-    - [HttpProvenanceReporter](#httpprovenancereporter)
-- [Todo](#todo)
+    - [HttpProvenanceReporter [DEPRECATED]](#httpprovenancereporter-deprecated)
+- [License](#license)
 
 ## Prerequisites
 
@@ -35,13 +35,23 @@ Reporting task to write provenance events to an Elasticsearch index.
 
 #### Reporting Task Properties
 
-<img src="elasticsearch_provenance_reporter_properties.png" width=600 />
+Properties can be set via the NiFi UI, or with environment variables (required properties are **bold**):
 
-#### Example Event
+| Property                                 | Description                                                                        | Default Value           | Environment Variable                                                                                                                                                                                      |
+|------------------------------------------|------------------------------------------------------------------------------------|-------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Page Size**                            | Page size for scrolling through the provenance repository.                         | `100`                   | `NIFI_PROVENANCE_REPORTING_PAGE_SIZE`                                                                                                                                                                     |
+| **Maximum History**                      | How far back to look into the provenance repository to index provenance events.    | `10000`                 | `NIFI_PROVENANCE_REPORTING_MAXIMUM_HISTORY`                                                                                                                                                               |
+| **Elasticsearch URL**                    | The address for Elasticsearch.                                                     | `http://localhost:9200` | `NIFI_PROVENANCE_REPORTING_ELASTICSEARCH_URL`                                                                                                                                                             |
+| **Elasticsearch Index**                  | The name of the Elasticsearch index.                                               | `nifi`                  | `NIFI_PROVENANCE_REPORTING_ELASTICSEARCH_INDEX`                                                                                                                                                           |
+| Elasticsearch CA Certificate Fingerprint | The HTTP CA certificate SHA-256 fingerprint for Elasticsearch. Required for HTTPS. |                         | `NIFI_PROVENANCE_REPORTING_ELASTICSEARCH_CA_CERT_FINGERPRINT`                                                                                                                                             |
+| Elasticsearch Username                   | The username for Elasticsearch authentication. Required for HTTPS.                 |                         | `NIFI_PROVENANCE_REPORTING_ELASTICSEARCH_USERNAME`                                                                                                                                                        |
+| Elasticsearch Password                   | The password for Elasticsearch authentication. Required for HTTPS.                 |                         | `NIFI_PROVENANCE_REPORTING_ELASTICSEARCH_PASSWORD`<br/><sub>**NOTE**: When setting the Elasticsearch Password via environment variable, the field in the NiFi UI will still display 'No value set'.</sub> |
 
-<img src="elasticsearch_provenance_reporter_event.png" width=600 />
 
-### HttpProvenanceReporter
+
+### HttpProvenanceReporter [DEPRECATED]
+
+**NOTE**: This task was deprecated in version 1.0.0.
 
 Reporting task to POST provenance events to an HTTP web service.
 
@@ -50,18 +60,6 @@ Reporting task to POST provenance events to an HTTP web service.
 This reporting task can be configured to POST provenance events to an arbitrary web service. Here is an example of using it with Solr (10s commits):
 
 <img src="http_provenance_reporter_properties.png" width=600 />
-
-## Todo
-
-- Add batching support.
-- Additional adapters:
-    - HDFS
-    - Tinkerpop
-    - NiFi site-to-site
-- Optional inclusion of FlowFile contents.
-- Create provenance event for runs of the reporting task.
-- Example schemas/mappings for data sources (Elasticsearch mapping, Solr schema, JSON schema).
-- Add testing.
 
 ## License
 
