@@ -18,6 +18,8 @@ The changelog is applicable from version `1.0.0` onwards.
 
 ### Changed
 
+- APED-34: Updated README.
+
 [Commits](https://github.com/brightsparklabs/appcli/compare/2.0.0...)
 
 ---
