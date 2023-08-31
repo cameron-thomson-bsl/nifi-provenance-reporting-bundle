@@ -132,8 +132,8 @@ public abstract class AbstractProvenanceReporter extends AbstractReportingTask {
         final ProvenanceEventRepository provenance = access.getProvenanceRepository();
         final Long maxEventId = provenance.getMaxEventId();
 
-        final int pageSize = Integer.parseInt(context.getProperty(PAGE_SIZE).getValue());
-        final int maxHistory = Integer.parseInt(context.getProperty(MAX_HISTORY).getValue());
+        final int pageSize = context.getProperty(PAGE_SIZE).asInteger();
+        final int maxHistory = context.getProperty(MAX_HISTORY).asInteger();
 
         try {
             long lastEventId = getLastEventId(stateManager);
