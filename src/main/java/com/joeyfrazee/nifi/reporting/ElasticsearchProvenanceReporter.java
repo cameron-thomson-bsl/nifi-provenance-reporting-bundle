@@ -138,9 +138,11 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
             PluginEnvironmentVariable.ELASTICSEARCH_PASSWORD.getValue().orElse(null);
 
     // TODO - APED-44 - Check if more appropriate StandardValidators
-    // Ones below are un documented but seems StandardValidators.ATTRIBUTE_KEY_VALIDATOR checks provided key
+    // Ones below are un documented but seems StandardValidators.ATTRIBUTE_KEY_VALIDATOR checks
+    // provided key
     // StandardValidators.ATTRIBUTE_KEY_PROPERTY_NAME_VALIDATOR checks provided value
-    // Not sure if just a loose validator as can get to pass with thing like "x.    foo, 232 - rsgs.bar" etc
+    // Not sure if just a loose validator as can get to pass with thing like "x.    foo, 232 -
+    // rsgs.bar" etc
     // will fail on empty values though.
     public static final PropertyDescriptor ELASTICSEARCH_INCLUSION_LIST =
             new PropertyDescriptor.Builder()
@@ -165,9 +167,11 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
                     .build();
 
     // TODO - APED-44 - Check if more appropriate StandardValidators
-    // Ones below are un documented but seems StandardValidators.ATTRIBUTE_KEY_VALIDATOR checks provided key
+    // Ones below are un documented but seems StandardValidators.ATTRIBUTE_KEY_VALIDATOR checks
+    // provided key
     // StandardValidators.ATTRIBUTE_KEY_PROPERTY_NAME_VALIDATOR checks provided value
-    // Not sure if just a loose validator as can get to pass with thing like "x.    foo, 232 - rsgs.bar" etc
+    // Not sure if just a loose validator as can get to pass with thing like "x.    foo, 232 -
+    // rsgs.bar" etc
     // will fail on empty values though.
     public static final PropertyDescriptor ELASTICSEARCH_EXCLUSION_LIST =
             new PropertyDescriptor.Builder()
