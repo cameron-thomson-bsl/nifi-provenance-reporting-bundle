@@ -38,6 +38,8 @@ import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.components.PropertyDescriptor;
+import org.apache.nifi.components.ValidationContext;
+import org.apache.nifi.components.ValidationResult;
 import org.apache.nifi.processor.util.StandardValidators;
 import org.apache.nifi.reporting.ReportingContext;
 import org.elasticsearch.client.RestClient;
@@ -135,6 +137,60 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
     private static final String DEFAULT_ELASTICSEARCH_PASSWORD =
             PluginEnvironmentVariable.ELASTICSEARCH_PASSWORD.getValue().orElse(null);
 
+    // TODO - APED-44 - Check if more appropriate StandardValidators
+    // Ones below are un documented but seems StandardValidators.ATTRIBUTE_KEY_VALIDATOR checks provided key
+    // StandardValidators.ATTRIBUTE_KEY_PROPERTY_NAME_VALIDATOR checks provided value
+    // Not sure if just a loose validator as can get to pass with thing like "x.    foo, 232 - rsgs.bar" etc
+    // will fail on empty values though.
+    public static final PropertyDescriptor ELASTICSEARCH_INCLUSION_LIST =
+            new PropertyDescriptor.Builder()
+                    .name("Elasticsearch Inclusion List")
+                    .displayName("Elasticsearch Inclusion List")
+                    .description(
+                            "The List of attributes that will be included within the Reporting Task."
+                                    + defaultEnvironmentVariableDescription(
+                                            PluginEnvironmentVariable.ELASTICSEARCH_INCLUSION_LIST))
+                    .defaultValue(
+                            PluginEnvironmentVariable.ELASTICSEARCH_INCLUSION_LIST
+                                    .getValue()
+                                    .orElse(null))
+                    .addValidator(
+                            StandardValidators.createListValidator(
+                                    true, true, StandardValidators.ATTRIBUTE_KEY_VALIDATOR))
+                    .addValidator(
+                            StandardValidators.createListValidator(
+                                    true,
+                                    true,
+                                    StandardValidators.ATTRIBUTE_KEY_PROPERTY_NAME_VALIDATOR))
+                    .build();
+
+    // TODO - APED-44 - Check if more appropriate StandardValidators
+    // Ones below are un documented but seems StandardValidators.ATTRIBUTE_KEY_VALIDATOR checks provided key
+    // StandardValidators.ATTRIBUTE_KEY_PROPERTY_NAME_VALIDATOR checks provided value
+    // Not sure if just a loose validator as can get to pass with thing like "x.    foo, 232 - rsgs.bar" etc
+    // will fail on empty values though.
+    public static final PropertyDescriptor ELASTICSEARCH_EXCLUSION_LIST =
+            new PropertyDescriptor.Builder()
+                    .name("Elasticsearch Exclusion List")
+                    .displayName("Elasticsearch Exclusion List")
+                    .description(
+                            "The List of attributes that will be exclusion from within the Reporting Task."
+                                    + defaultEnvironmentVariableDescription(
+                                            PluginEnvironmentVariable.ELASTICSEARCH_EXCLUSION_LIST))
+                    .defaultValue(
+                            PluginEnvironmentVariable.ELASTICSEARCH_EXCLUSION_LIST
+                                    .getValue()
+                                    .orElse(null))
+                    .addValidator(
+                            StandardValidators.createListValidator(
+                                    true, true, StandardValidators.ATTRIBUTE_KEY_VALIDATOR))
+                    .addValidator(
+                            StandardValidators.createListValidator(
+                                    true,
+                                    true,
+                                    StandardValidators.ATTRIBUTE_KEY_PROPERTY_NAME_VALIDATOR))
+                    .build();
+
     // -------------------------------------------------------------------------
     // PUBLIC METHODS
     // -------------------------------------------------------------------------
@@ -147,6 +203,8 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
         descriptors.add(ELASTICSEARCH_CA_CERT_FINGERPRINT);
         descriptors.add(ELASTICSEARCH_USERNAME);
         descriptors.add(ELASTICSEARCH_PASSWORD);
+        descriptors.add(ELASTICSEARCH_INCLUSION_LIST);
+        descriptors.add(ELASTICSEARCH_EXCLUSION_LIST);
         return descriptors;
     }
 
@@ -183,6 +241,27 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
                         .document(event)
                         .build();
         client.index(indexRequest);
+    }
+
+    @Override
+    protected Collection<ValidationResult> customValidate(
+            final ValidationContext validationContext) {
+        final List<ValidationResult> errors = new ArrayList<>();
+
+        if (!validationContext.getProperty(ELASTICSEARCH_INCLUSION_LIST).getValue().isEmpty()
+                && !validationContext
+                        .getProperty(ELASTICSEARCH_EXCLUSION_LIST)
+                        .getValue()
+                        .isEmpty()) {
+            errors.add(
+                    new ValidationResult.Builder()
+                            .subject("Mutual exclusion required for Inclusion & Exclusion List.")
+                            .explanation(
+                                    "The inclusion list and exclusion list must be mutually exclusive (i.e. only one can be specified).")
+                            .valid(false)
+                            .build());
+        }
+        return errors;
     }
 
     // -------------------------------------------------------------------------
