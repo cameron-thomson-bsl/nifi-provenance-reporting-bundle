@@ -19,6 +19,7 @@ The changelog is applicable from version `1.0.0` onwards.
 ### Changed
 
 - APED-34: Updated README.
+- APED-43: Set default run schedule for `ElasticsearchProvenanceReporter` to `"1 min"`.
 
 [Commits](https://github.com/brightsparklabs/appcli/compare/2.0.0...)
 
