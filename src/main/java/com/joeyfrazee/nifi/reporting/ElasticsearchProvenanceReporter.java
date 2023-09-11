@@ -252,11 +252,15 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
             final ValidationContext validationContext) {
         final List<ValidationResult> errors = new ArrayList<>();
 
-        if (!validationContext.getProperty(ELASTICSEARCH_INCLUSION_LIST).getValue().isEmpty()
-                && !validationContext
-                        .getProperty(ELASTICSEARCH_EXCLUSION_LIST)
-                        .getValue()
-                        .isEmpty()) {
+        String inclusionListString =
+                validationContext.getProperty(ELASTICSEARCH_INCLUSION_LIST).getValue();
+        String exclusionListString =
+                validationContext.getProperty(ELASTICSEARCH_EXCLUSION_LIST).getValue();
+
+        if (inclusionListString != null
+                && !inclusionListString.isEmpty()
+                && exclusionListString != null
+                && !exclusionListString.isEmpty()) {
             errors.add(
                     new ValidationResult.Builder()
                             .subject("Mutual exclusion required for Inclusion & Exclusion List.")
