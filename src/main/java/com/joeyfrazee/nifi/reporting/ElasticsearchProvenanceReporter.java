@@ -31,6 +31,8 @@ import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.processor.util.StandardValidators;
 import org.apache.nifi.reporting.ReportingContext;
+import org.apache.nifi.components.ValidationContext;
+import org.apache.nifi.components.ValidationResult;
 
 import org.elasticsearch.client.RestClient;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
@@ -38,6 +40,7 @@ import co.elastic.clients.elasticsearch.core.IndexRequest;
 import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.elastic.clients.transport.ElasticsearchTransport;
 import co.elastic.clients.transport.rest_client.RestClientTransport;
+import com.google.common.collect.ImmutableMap;
 
 @Tags({"elasticsearch", "provenance"})
 @CapabilityDescription("A provenance reporting task that writes to Elasticsearch")
@@ -99,6 +102,54 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
      */
     private static final String DEFAULT_ELASTICSEARCH_PASSWORD = PluginEnvironmentVariable.ELASTICSEARCH_PASSWORD.getValue().orElse(null);
 
+    /**
+     * The comma-separated list of attributes to include in the data sent to Elasticsearch. Mutually
+     * exclusive with `ELASTICSEARCH_EXCLUSION_LIST`.
+     */
+    public static final PropertyDescriptor ELASTICSEARCH_INCLUSION_LIST =
+            new PropertyDescriptor.Builder()
+                    .name("Elasticsearch Inclusion List")
+                    .displayName("Elasticsearch Inclusion List")
+                    .description(
+                            "The comma-separated list of attributes to include in the data sent "
+                                    + "to Elasticsearch. All other attributes will be excluded. "
+                                    + "This property is mutually exclusive with the Elasticsearch"
+                                    + " Exclusion List."
+                                    + defaultEnvironmentVariableDescription(
+                                    PluginEnvironmentVariable.ELASTICSEARCH_INCLUSION_LIST))
+                    .defaultValue(
+                            PluginEnvironmentVariable.ELASTICSEARCH_INCLUSION_LIST
+                                    .getValue()
+                                    .orElse(null))
+                    .addValidator(
+                            StandardValidators.createListValidator(
+                                    true, true, StandardValidators.ATTRIBUTE_KEY_VALIDATOR))
+                    .build();
+
+    /**
+     * The comma-separated list of attributes to exclude from the data sent to Elasticsearch.
+     * Mutually exclusive with `ELASTICSEARCH_INCLUSION_LIST`.
+     */
+    public static final PropertyDescriptor ELASTICSEARCH_EXCLUSION_LIST =
+            new PropertyDescriptor.Builder()
+                    .name("Elasticsearch Exclusion List")
+                    .displayName("Elasticsearch Exclusion List")
+                    .description(
+                            "The comma-separated list of attributes to exclude from the data sent "
+                                    + "to Elasticsearch. All other attributes will be included. "
+                                    + "This property is mutually exclusive with the Elasticsearch"
+                                    + " Inclusion List."
+                                    + defaultEnvironmentVariableDescription(
+                                    PluginEnvironmentVariable.ELASTICSEARCH_EXCLUSION_LIST))
+                    .defaultValue(
+                            PluginEnvironmentVariable.ELASTICSEARCH_EXCLUSION_LIST
+                                    .getValue()
+                                    .orElse(null))
+                    .addValidator(
+                            StandardValidators.createListValidator(
+                                    true, true, StandardValidators.ATTRIBUTE_KEY_VALIDATOR))
+                    .build();
+
     // -------------------------------------------------------------------------
     // PUBLIC METHODS
     // -------------------------------------------------------------------------
@@ -111,6 +162,8 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
         descriptors.add(ELASTICSEARCH_CA_CERT_FINGERPRINT);
         descriptors.add(ELASTICSEARCH_USERNAME);
         descriptors.add(ELASTICSEARCH_PASSWORD);
+        descriptors.add(ELASTICSEARCH_INCLUSION_LIST);
+        descriptors.add(ELASTICSEARCH_EXCLUSION_LIST);
         return descriptors;
     }
 
@@ -129,14 +182,51 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
         final RestClient restClient = (protocol.equals("https")) ? getSecureRestClient(elasticsearchUrl, elasticsearchCACertFingerprint, elasticsearchUsername, elasticsearchPassword) : getRestClient(elasticsearchUrl);
         final ElasticsearchClient client = getElasticsearchClient(restClient);
 
+        // Filter event fields based on inclusion/exclusion list.
+        String inclusionListString = context.getProperty(ELASTICSEARCH_INCLUSION_LIST).getValue();
+        String exclusionListString = context.getProperty(ELASTICSEARCH_EXCLUSION_LIST).getValue();
+        Map<String, Object> filteredEvent = event;
+        if (inclusionListString != null && !inclusionListString.isEmpty()) {
+            filteredEvent = getFilteredMap(event, inclusionListString, true);
+        } else if (exclusionListString != null && !exclusionListString.isEmpty()) {
+            filteredEvent = getFilteredMap(event, exclusionListString, false);
+        }
+
         // Index the event.
         final String id = Long.toString((Long) event.get("event_id"));
         final IndexRequest<Map<String, Object>> indexRequest = new IndexRequest.Builder<Map<String, Object>>()
                 .index(elasticsearchIndex)
                 .id(id)
-                .document(event)
+                .document(filteredEvent)
                 .build();
         client.index(indexRequest);
+    }
+
+    @Override
+    protected Collection<ValidationResult> customValidate(
+            final ValidationContext validationContext) {
+        final List<ValidationResult> errors = new ArrayList<>();
+
+        String inclusionListString =
+                validationContext.getProperty(ELASTICSEARCH_INCLUSION_LIST).getValue();
+        String exclusionListString =
+                validationContext.getProperty(ELASTICSEARCH_EXCLUSION_LIST).getValue();
+
+        // Ensure the Elasticsearch inclusion and exclusion lists are mutually exclusive.
+        if (inclusionListString != null
+                && !inclusionListString.isEmpty()
+                && exclusionListString != null
+                && !exclusionListString.isEmpty()) {
+            errors.add(
+                    new ValidationResult.Builder()
+                            .subject("Mutual exclusion required for Inclusion & Exclusion List.")
+                            .explanation(
+                                    "The inclusion list and exclusion list must be mutually "
+                                            + "exclusive (i.e. only one can be specified).")
+                            .valid(false)
+                            .build());
+        }
+        return errors;
     }
 
     // -------------------------------------------------------------------------
@@ -199,5 +289,33 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
     private ElasticsearchClient getElasticsearchClient(RestClient restClient) {
         final ElasticsearchTransport transport = new RestClientTransport(restClient, new JacksonJsonpMapper());
         return new ElasticsearchClient(transport);
+    }
+
+    /**
+     * Return a subset of the given map that either includes the given fields (and no other fields),
+     * or excludes them.
+     *
+     * <p>All whitespace within the given fields is ignored.
+     *
+     * @param map The map.
+     * @param fieldsToFilterString The fields to filter for, as a comma-separated list.
+     * @param include Whether to include or exclude the given fields.
+     * @return The filtered map.
+     */
+    private ImmutableMap<String, Object> getFilteredMap(
+            Map<String, Object> map, String fieldsToFilterString, boolean include) {
+        // Convert comma-separated list into array, while ignoring whitespace.
+        String[] fieldsToFilterArray = fieldsToFilterString.trim().split("\\s*,\\s*");
+        List<String> fieldsToFilterList = Arrays.asList(fieldsToFilterArray);
+
+        ImmutableMap.Builder<String, Object> filteredMapBuilder = ImmutableMap.builder();
+        for (final String field : map.keySet()) {
+            boolean includeField = fieldsToFilterList.contains(field) ? include : !include;
+            if (includeField) {
+                filteredMapBuilder.put(field, map.get(field));
+            }
+        }
+
+        return filteredMapBuilder.build();
     }
 }
