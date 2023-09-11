@@ -52,9 +52,15 @@ public enum PluginEnvironmentVariable {
     ELASTICSEARCH_USERNAME("ELASTICSEARCH_USERNAME"),
     /** The environment variable defining the password for Elasticsearch authentication. */
     ELASTICSEARCH_PASSWORD("ELASTICSEARCH_PASSWORD"),
-
+    /**
+     * The environment variable defining the comma-separated list of attributes to include in the
+     * data sent to Elasticsearch.
+     */
     ELASTICSEARCH_INCLUSION_LIST("ELASTICSEARCH_INCLUSION_LIST"),
-
+    /**
+     * The environment variable defining the comma-separated list of attributes to exclude from the
+     * data sent to Elasticsearch.
+     */
     ELASTICSEARCH_EXCLUSION_LIST("ELASTICSEARCH_EXCLUSION_LIST"),
     ;
 

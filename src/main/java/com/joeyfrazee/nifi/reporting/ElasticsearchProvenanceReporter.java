@@ -27,6 +27,7 @@ import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.elastic.clients.transport.ElasticsearchTransport;
 import co.elastic.clients.transport.TransportUtils;
 import co.elastic.clients.transport.rest_client.RestClientTransport;
+import com.google.common.collect.ImmutableMap;
 import java.io.*;
 import java.net.URL;
 import java.util.*;
@@ -89,7 +90,8 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
                     .name("Elasticsearch CA Certificate Fingerprint")
                     .displayName("Elasticsearch CA Certificate Fingerprint")
                     .description(
-                            "The HTTP CA certificate SHA-256 fingerprint for Elasticsearch. Required for HTTPS."
+                            "The HTTP CA certificate SHA-256 fingerprint for Elasticsearch. "
+                                    + "Required for HTTPS."
                                     + defaultEnvironmentVariableDescription(
                                             PluginEnvironmentVariable
                                                     .ELASTICSEARCH_CA_CERT_FINGERPRINT))
@@ -125,7 +127,8 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
                             "The password for Elasticsearch authentication. Required for HTTPS."
                                     + defaultEnvironmentVariableDescription(
                                             PluginEnvironmentVariable.ELASTICSEARCH_PASSWORD)
-                                    + " NOTE: The field will display 'No value set' when set via environment variable.")
+                                    + " NOTE: The field will display 'No value set' when set via "
+                                    + "environment variable.")
                     .sensitive(true)
                     .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
                     .build();
@@ -137,19 +140,19 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
     private static final String DEFAULT_ELASTICSEARCH_PASSWORD =
             PluginEnvironmentVariable.ELASTICSEARCH_PASSWORD.getValue().orElse(null);
 
-    // TODO - APED-44 - Check if more appropriate StandardValidators
-    // Ones below are un documented but seems StandardValidators.ATTRIBUTE_KEY_VALIDATOR checks
-    // provided key
-    // StandardValidators.ATTRIBUTE_KEY_PROPERTY_NAME_VALIDATOR checks provided value
-    // Not sure if just a loose validator as can get to pass with thing like "x.    foo, 232 -
-    // rsgs.bar" etc
-    // will fail on empty values though.
+    /**
+     * The comma-separated list of attributes to include in the data sent to Elasticsearch. Mutually
+     * exclusive with `ELASTICSEARCH_EXCLUSION_LIST`.
+     */
     public static final PropertyDescriptor ELASTICSEARCH_INCLUSION_LIST =
             new PropertyDescriptor.Builder()
                     .name("Elasticsearch Inclusion List")
                     .displayName("Elasticsearch Inclusion List")
                     .description(
-                            "The List of attributes that will be included within the Reporting Task."
+                            "The comma-separated list of attributes to include in the data sent "
+                                    + "to Elasticsearch. All other attributes will be excluded. "
+                                    + "This property is mutually exclusive with the Elasticsearch"
+                                    + " Exclusion List."
                                     + defaultEnvironmentVariableDescription(
                                             PluginEnvironmentVariable.ELASTICSEARCH_INCLUSION_LIST))
                     .defaultValue(
@@ -159,26 +162,21 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
                     .addValidator(
                             StandardValidators.createListValidator(
                                     true, true, StandardValidators.ATTRIBUTE_KEY_VALIDATOR))
-                    .addValidator(
-                            StandardValidators.createListValidator(
-                                    true,
-                                    true,
-                                    StandardValidators.ATTRIBUTE_KEY_PROPERTY_NAME_VALIDATOR))
                     .build();
 
-    // TODO - APED-44 - Check if more appropriate StandardValidators
-    // Ones below are un documented but seems StandardValidators.ATTRIBUTE_KEY_VALIDATOR checks
-    // provided key
-    // StandardValidators.ATTRIBUTE_KEY_PROPERTY_NAME_VALIDATOR checks provided value
-    // Not sure if just a loose validator as can get to pass with thing like "x.    foo, 232 -
-    // rsgs.bar" etc
-    // will fail on empty values though.
+    /**
+     * The comma-separated list of attributes to exclude from the data sent to Elasticsearch.
+     * Mutually exclusive with `ELASTICSEARCH_INCLUSION_LIST`.
+     */
     public static final PropertyDescriptor ELASTICSEARCH_EXCLUSION_LIST =
             new PropertyDescriptor.Builder()
                     .name("Elasticsearch Exclusion List")
                     .displayName("Elasticsearch Exclusion List")
                     .description(
-                            "The List of attributes that will be exclusion from within the Reporting Task."
+                            "The comma-separated list of attributes to exclude from the data sent "
+                                    + "to Elasticsearch. All other attributes will be included. "
+                                    + "This property is mutually exclusive with the Elasticsearch"
+                                    + " Inclusion List."
                                     + defaultEnvironmentVariableDescription(
                                             PluginEnvironmentVariable.ELASTICSEARCH_EXCLUSION_LIST))
                     .defaultValue(
@@ -188,11 +186,6 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
                     .addValidator(
                             StandardValidators.createListValidator(
                                     true, true, StandardValidators.ATTRIBUTE_KEY_VALIDATOR))
-                    .addValidator(
-                            StandardValidators.createListValidator(
-                                    true,
-                                    true,
-                                    StandardValidators.ATTRIBUTE_KEY_PROPERTY_NAME_VALIDATOR))
                     .build();
 
     // -------------------------------------------------------------------------
@@ -236,13 +229,23 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
                         : getRestClient(elasticsearchUrl);
         final ElasticsearchClient client = getElasticsearchClient(restClient);
 
+        // Filter event fields based on inclusion/exclusion list.
+        String inclusionListString = context.getProperty(ELASTICSEARCH_INCLUSION_LIST).getValue();
+        String exclusionListString = context.getProperty(ELASTICSEARCH_EXCLUSION_LIST).getValue();
+        Map<String, Object> filteredEvent = event;
+        if (inclusionListString != null && !inclusionListString.isEmpty()) {
+            filteredEvent = getFilteredMap(event, inclusionListString, true);
+        } else if (exclusionListString != null && !exclusionListString.isEmpty()) {
+            filteredEvent = getFilteredMap(event, exclusionListString, false);
+        }
+
         // Index the event.
         final String id = Long.toString((Long) event.get("event_id"));
         final IndexRequest<Map<String, Object>> indexRequest =
                 new IndexRequest.Builder<Map<String, Object>>()
                         .index(elasticsearchIndex)
                         .id(id)
-                        .document(event)
+                        .document(filteredEvent)
                         .build();
         client.index(indexRequest);
     }
@@ -257,6 +260,7 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
         String exclusionListString =
                 validationContext.getProperty(ELASTICSEARCH_EXCLUSION_LIST).getValue();
 
+        // Ensure the Elasticsearch inclusion and exclusion lists are mutually exclusive.
         if (inclusionListString != null
                 && !inclusionListString.isEmpty()
                 && exclusionListString != null
@@ -265,7 +269,8 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
                     new ValidationResult.Builder()
                             .subject("Mutual exclusion required for Inclusion & Exclusion List.")
                             .explanation(
-                                    "The inclusion list and exclusion list must be mutually exclusive (i.e. only one can be specified).")
+                                    "The inclusion list and exclusion list must be mutually "
+                                            + "exclusive (i.e. only one can be specified).")
                             .valid(false)
                             .build());
         }
@@ -343,5 +348,33 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
         final ElasticsearchTransport transport =
                 new RestClientTransport(restClient, new JacksonJsonpMapper());
         return new ElasticsearchClient(transport);
+    }
+
+    /**
+     * Return a subset of the given map that either includes the given fields (and no other fields),
+     * or excludes them.
+     *
+     * <p>All whitespace within the given fields is ignored.
+     *
+     * @param map The map.
+     * @param fieldsToFilterString The fields to filter for, as a comma-separated list.
+     * @param include Whether to include or exclude the given fields.
+     * @return The filtered map.
+     */
+    private ImmutableMap<String, Object> getFilteredMap(
+            Map<String, Object> map, String fieldsToFilterString, boolean include) {
+        // Convert comma-separated list into array, while ignoring whitespace.
+        String[] fieldsToFilterArray = fieldsToFilterString.trim().split("\\s*,\\s*");
+        List<String> fieldsToFilterList = Arrays.asList(fieldsToFilterArray);
+
+        ImmutableMap.Builder<String, Object> filteredMapBuilder = ImmutableMap.builder();
+        for (final String field : map.keySet()) {
+            boolean includeField = fieldsToFilterList.contains(field) ? include : !include;
+            if (includeField) {
+                filteredMapBuilder.put(field, map.get(field));
+            }
+        }
+
+        return filteredMapBuilder.build();
     }
 }
