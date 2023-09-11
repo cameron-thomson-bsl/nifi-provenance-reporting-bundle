@@ -45,6 +45,10 @@ import org.apache.nifi.scheduling.SchedulingStrategy;
 import org.elasticsearch.client.RestClient;
 
 @Tags({"elasticsearch", "provenance"})
+// Ideally we would use an environment variable to set the default run schedule. Unfortunately this
+// would require either modifications to the NiFi source code, or multiple authenticated HTTP
+// requests using the NiFi REST API after the reporting task is created. Neither solution is
+// ideal, so instead we use a more sensible default of 1 min (instead of 5 min).
 @DefaultSchedule(strategy = SchedulingStrategy.TIMER_DRIVEN, period = "1 min")
 @CapabilityDescription("A provenance reporting task that writes to Elasticsearch")
 public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter {
