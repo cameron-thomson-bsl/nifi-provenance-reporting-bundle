@@ -27,11 +27,17 @@ import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.elastic.clients.transport.ElasticsearchTransport;
 import co.elastic.clients.transport.TransportUtils;
 import co.elastic.clients.transport.rest_client.RestClientTransport;
+import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
-import java.io.*;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
+import java.io.IOException;
 import java.net.URL;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 import javax.net.ssl.SSLContext;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
@@ -52,6 +58,10 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
     // -------------------------------------------------------------------------
     // CONSTANTS
     // -------------------------------------------------------------------------
+
+    /** Splits a string based on comma delimiters, ignoring surrounding whitespace. */
+    private static final Splitter COMMA_SPLITTER =
+            Splitter.onPattern(",").trimResults().omitEmptyStrings();
 
     /** The address for Elasticsearch. */
     public static final PropertyDescriptor ELASTICSEARCH_URL =
@@ -231,7 +241,7 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
         final ElasticsearchClient client = getElasticsearchClient(restClient);
 
         // Filter event fields based on inclusion/exclusion list.
-        ImmutableMap<String, Object> filteredEvent = filterEventFields(event, context);
+        final ImmutableMap<String, Object> filteredEvent = filterEventFields(event, context);
 
         // Index the event.
         final String id = Long.toString((Long) event.get("event_id"));
@@ -249,16 +259,14 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
             final ValidationContext validationContext) {
         final List<ValidationResult> errors = new ArrayList<>();
 
-        String inclusionListString =
+        final String inclusionListString =
                 validationContext.getProperty(ELASTICSEARCH_INCLUSION_LIST).getValue();
-        String exclusionListString =
+        final String exclusionListString =
                 validationContext.getProperty(ELASTICSEARCH_EXCLUSION_LIST).getValue();
 
         // Ensure the Elasticsearch inclusion and exclusion lists are mutually exclusive.
-        if (inclusionListString != null
-                && !inclusionListString.isEmpty()
-                && exclusionListString != null
-                && !exclusionListString.isEmpty()) {
+        if (!Strings.isNullOrEmpty(inclusionListString)
+                && !Strings.isNullOrEmpty(exclusionListString)) {
             errors.add(
                     new ValidationResult.Builder()
                             // The validation error message is displayed in the NiFi UI as
@@ -331,9 +339,9 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
      * @return The RestClient object.
      */
     private RestClient getRestClient(URL elasticsearchUrl) {
-        return RestClient.builder(
-                        new HttpHost(elasticsearchUrl.getHost(), elasticsearchUrl.getPort()))
-                .build();
+        final HttpHost httpHost =
+                new HttpHost(elasticsearchUrl.getHost(), elasticsearchUrl.getPort());
+        return RestClient.builder(httpHost).build();
     }
 
     /**
@@ -359,50 +367,35 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
      */
     private ImmutableMap<String, Object> filterEventFields(
             Map<String, Object> event, ReportingContext context) {
+        // Process inclusion rules if present.
         final String inclusionListString =
                 context.getProperty(ELASTICSEARCH_INCLUSION_LIST).getValue();
+        if (!Strings.isNullOrEmpty(inclusionListString)) {
+            // Only include fields which ARE in the field list.
+            final ImmutableSet<String> fieldsToInclude = extractFieldNames(inclusionListString);
+            final Map<String, Object> filteredMap =
+                    Maps.filterKeys(event, fieldsToInclude::contains);
+            return ImmutableMap.copyOf(filteredMap);
+        }
+
+        // Process exclusion rules if present.
         final String exclusionListString =
                 context.getProperty(ELASTICSEARCH_EXCLUSION_LIST).getValue();
-
-        ImmutableMap.Builder<String, Object> filteredEventBuilder = ImmutableMap.builder();
-
-        if (!Strings.isNullOrEmpty(inclusionListString)) {
-            filteredEventBuilder.putAll(getFilteredMap(event, inclusionListString, true));
-        } else if (!Strings.isNullOrEmpty(exclusionListString)) {
-            filteredEventBuilder.putAll(getFilteredMap(event, exclusionListString, false));
-        } else {
-            // No filtering required.
-            filteredEventBuilder.putAll(event);
+        if (!Strings.isNullOrEmpty(exclusionListString)) {
+            // Only include fields which ARE NOT in the field list.
+            final ImmutableSet<String> fieldsToExclude = extractFieldNames(exclusionListString);
+            final Map<String, Object> filteredMap =
+                    Maps.filterKeys(event, k -> !fieldsToExclude.contains(k));
+            return ImmutableMap.copyOf(filteredMap);
         }
 
-        return filteredEventBuilder.build();
+        // No filtering required.
+        return ImmutableMap.copyOf(event);
     }
 
-    /**
-     * Return a subset of the given map that either includes the given fields (and no other fields),
-     * or excludes them.
-     *
-     * <p>All whitespace within the given fields is ignored.
-     *
-     * @param map The map.
-     * @param fieldsToFilterString The fields to filter for, as a comma-separated list.
-     * @param include Whether to include or exclude the given fields.
-     * @return The filtered map.
-     */
-    private ImmutableMap<String, Object> getFilteredMap(
-            Map<String, Object> map, String fieldsToFilterString, boolean include) {
+    private ImmutableSet<String> extractFieldNames(String fieldsString) {
         // Convert comma-separated list into array, while ignoring whitespace.
-        String[] fieldsToFilterArray = fieldsToFilterString.trim().split("\\s*,\\s*");
-        List<String> fieldsToFilterList = Arrays.asList(fieldsToFilterArray);
-
-        ImmutableMap.Builder<String, Object> filteredMapBuilder = ImmutableMap.builder();
-        for (final String field : map.keySet()) {
-            boolean includeField = fieldsToFilterList.contains(field) ? include : !include;
-            if (includeField) {
-                filteredMapBuilder.put(field, map.get(field));
-            }
-        }
-
-        return filteredMapBuilder.build();
+        final Iterable<String> split = COMMA_SPLITTER.split(fieldsString);
+        return ImmutableSet.copyOf(split);
     }
 }
