@@ -17,6 +17,8 @@
 package com.joeyfrazee.nifi.reporting;
 
 import co.elastic.clients.transport.TransportUtils;
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
 import java.io.*;
 import java.net.URL;
 import java.util.*;
@@ -40,7 +42,6 @@ import co.elastic.clients.elasticsearch.core.IndexRequest;
 import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.elastic.clients.transport.ElasticsearchTransport;
 import co.elastic.clients.transport.rest_client.RestClientTransport;
-import com.google.common.collect.ImmutableMap;
 
 @Tags({"elasticsearch", "provenance"})
 @CapabilityDescription("A provenance reporting task that writes to Elasticsearch")
@@ -183,14 +184,7 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
         final ElasticsearchClient client = getElasticsearchClient(restClient);
 
         // Filter event fields based on inclusion/exclusion list.
-        String inclusionListString = context.getProperty(ELASTICSEARCH_INCLUSION_LIST).getValue();
-        String exclusionListString = context.getProperty(ELASTICSEARCH_EXCLUSION_LIST).getValue();
-        Map<String, Object> filteredEvent = event;
-        if (inclusionListString != null && !inclusionListString.isEmpty()) {
-            filteredEvent = getFilteredMap(event, inclusionListString, true);
-        } else if (exclusionListString != null && !exclusionListString.isEmpty()) {
-            filteredEvent = getFilteredMap(event, exclusionListString, false);
-        }
+        ImmutableMap<String, Object> filteredEvent = filterEventFields(event, context);
 
         // Index the event.
         final String id = Long.toString((Long) event.get("event_id"));
@@ -219,10 +213,14 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
                 && !exclusionListString.isEmpty()) {
             errors.add(
                     new ValidationResult.Builder()
-                            .subject("Mutual exclusion required for Inclusion & Exclusion List.")
+                            // The validation error message is displayed in the NiFi UI as
+                            // "'<subject>' is invalid because <explanation>"
+                            .subject(
+                                    "Mutual exclusion required for `Elasticsearch Inclusion "
+                                            + "List` & `Elasticsearch Exclusion List`.")
                             .explanation(
-                                    "The inclusion list and exclusion list must be mutually "
-                                            + "exclusive (i.e. only one can be specified).")
+                                    "the inclusion and exclusion lists are mutually exclusive "
+                                            + "(i.e. only one can be specified).")
                             .valid(false)
                             .build());
         }
@@ -289,6 +287,36 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
     private ElasticsearchClient getElasticsearchClient(RestClient restClient) {
         final ElasticsearchTransport transport = new RestClientTransport(restClient, new JacksonJsonpMapper());
         return new ElasticsearchClient(transport);
+    }
+
+    /**
+     * Filter the given event to remove fields based on the `Elasticsearch Inclusion List` or
+     * `Elasticsearch Exclusion List`. If both lists are empty, the event is returned with fields
+     * unmodified.
+     *
+     * @param event The event to filter.
+     * @param context The reporting context.
+     * @return The filtered event.
+     */
+    private ImmutableMap<String, Object> filterEventFields(
+            Map<String, Object> event, ReportingContext context) {
+        final String inclusionListString =
+                context.getProperty(ELASTICSEARCH_INCLUSION_LIST).getValue();
+        final String exclusionListString =
+                context.getProperty(ELASTICSEARCH_EXCLUSION_LIST).getValue();
+
+        ImmutableMap.Builder<String, Object> filteredEventBuilder = ImmutableMap.builder();
+
+        if (!Strings.isNullOrEmpty(inclusionListString)) {
+            filteredEventBuilder.putAll(getFilteredMap(event, inclusionListString, true));
+        } else if (!Strings.isNullOrEmpty(exclusionListString)) {
+            filteredEventBuilder.putAll(getFilteredMap(event, exclusionListString, false));
+        } else {
+            // No filtering required.
+            filteredEventBuilder.putAll(event);
+        }
+
+        return filteredEventBuilder.build();
     }
 
     /**
