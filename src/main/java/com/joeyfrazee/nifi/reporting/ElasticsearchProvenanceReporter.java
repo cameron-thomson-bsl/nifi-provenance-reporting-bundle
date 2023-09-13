@@ -312,10 +312,10 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
      * @return The RestClient object.
      */
     private RestClient getSecureRestClient(
-            URL elasticsearchUrl,
-            String elasticsearchCACertFingerprint,
-            String elasticsearchUsername,
-            String elasticsearchPassword) {
+            final URL elasticsearchUrl,
+            final String elasticsearchCACertFingerprint,
+            final String elasticsearchUsername,
+            final String elasticsearchPassword) {
         final SSLContext sslContext =
                 TransportUtils.sslContextFromCaFingerprint(elasticsearchCACertFingerprint);
         final BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
@@ -338,7 +338,7 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
      * @param elasticsearchUrl The Elasticsearch URL.
      * @return The RestClient object.
      */
-    private RestClient getRestClient(URL elasticsearchUrl) {
+    private RestClient getRestClient(final URL elasticsearchUrl) {
         final HttpHost httpHost =
                 new HttpHost(elasticsearchUrl.getHost(), elasticsearchUrl.getPort());
         return RestClient.builder(httpHost).build();
@@ -350,7 +350,7 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
      * @param restClient The Elasticsearch REST client.
      * @return The ElasticsearchClient object.
      */
-    private ElasticsearchClient getElasticsearchClient(RestClient restClient) {
+    private ElasticsearchClient getElasticsearchClient(final RestClient restClient) {
         final ElasticsearchTransport transport =
                 new RestClientTransport(restClient, new JacksonJsonpMapper());
         return new ElasticsearchClient(transport);
@@ -366,7 +366,7 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
      * @return The filtered event.
      */
     private ImmutableMap<String, Object> filterEventFields(
-            Map<String, Object> event, ReportingContext context) {
+            final Map<String, Object> event, final ReportingContext context) {
         // Process inclusion rules if present.
         final String inclusionListString =
                 context.getProperty(ELASTICSEARCH_INCLUSION_LIST).getValue();
@@ -393,7 +393,13 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
         return ImmutableMap.copyOf(event);
     }
 
-    private ImmutableSet<String> extractFieldNames(String fieldsString) {
+    /**
+     * Extract a set of field names from given comma-separated list.
+     *
+     * @param fieldsString The field names, as a comma-separated list.
+     * @return The set of field names.
+     */
+    private ImmutableSet<String> extractFieldNames(final String fieldsString) {
         // Convert comma-separated list into array, while ignoring whitespace.
         final Iterable<String> split = COMMA_SPLITTER.split(fieldsString);
         return ImmutableSet.copyOf(split);
