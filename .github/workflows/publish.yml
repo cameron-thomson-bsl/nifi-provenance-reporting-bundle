@@ -9,7 +9,7 @@ name: Publish to Maven Central
 on:
   push:
     branches:
-      - master
+      - 1.0.0-maintenance-master
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel.
 jobs:
