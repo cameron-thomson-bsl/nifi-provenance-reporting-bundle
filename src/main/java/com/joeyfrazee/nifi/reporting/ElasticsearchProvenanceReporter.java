@@ -27,9 +27,17 @@ import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.elastic.clients.transport.ElasticsearchTransport;
 import co.elastic.clients.transport.TransportUtils;
 import co.elastic.clients.transport.rest_client.RestClientTransport;
-import java.io.*;
+import com.google.common.base.Splitter;
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
+import java.io.IOException;
 import java.net.URL;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 import javax.net.ssl.SSLContext;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
@@ -39,6 +47,8 @@ import org.apache.nifi.annotation.configuration.DefaultSchedule;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.components.PropertyDescriptor;
+import org.apache.nifi.components.ValidationContext;
+import org.apache.nifi.components.ValidationResult;
 import org.apache.nifi.processor.util.StandardValidators;
 import org.apache.nifi.reporting.ReportingContext;
 import org.apache.nifi.scheduling.SchedulingStrategy;
@@ -55,6 +65,10 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
     // -------------------------------------------------------------------------
     // CONSTANTS
     // -------------------------------------------------------------------------
+
+    /** Splits a string based on comma delimiters, ignoring surrounding whitespace. */
+    private static final Splitter COMMA_SPLITTER =
+            Splitter.onPattern(",").trimResults().omitEmptyStrings();
 
     /** The address for Elasticsearch. */
     public static final PropertyDescriptor ELASTICSEARCH_URL =
@@ -94,7 +108,8 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
                     .name("Elasticsearch CA Certificate Fingerprint")
                     .displayName("Elasticsearch CA Certificate Fingerprint")
                     .description(
-                            "The HTTP CA certificate SHA-256 fingerprint for Elasticsearch. Required for HTTPS."
+                            "The HTTP CA certificate SHA-256 fingerprint for Elasticsearch. "
+                                    + "Required for HTTPS."
                                     + defaultEnvironmentVariableDescription(
                                             PluginEnvironmentVariable
                                                     .ELASTICSEARCH_CA_CERT_FINGERPRINT))
@@ -130,7 +145,8 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
                             "The password for Elasticsearch authentication. Required for HTTPS."
                                     + defaultEnvironmentVariableDescription(
                                             PluginEnvironmentVariable.ELASTICSEARCH_PASSWORD)
-                                    + " NOTE: The field will display 'No value set' when set via environment variable.")
+                                    + " NOTE: The field will display 'No value set' when set via "
+                                    + "environment variable.")
                     .sensitive(true)
                     .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
                     .build();
@@ -141,6 +157,54 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
      */
     private static final String DEFAULT_ELASTICSEARCH_PASSWORD =
             PluginEnvironmentVariable.ELASTICSEARCH_PASSWORD.getValue().orElse(null);
+
+    /**
+     * The comma-separated list of attributes to include in the data sent to Elasticsearch. Mutually
+     * exclusive with `ELASTICSEARCH_EXCLUSION_LIST`.
+     */
+    public static final PropertyDescriptor ELASTICSEARCH_INCLUSION_LIST =
+            new PropertyDescriptor.Builder()
+                    .name("Elasticsearch Inclusion List")
+                    .displayName("Elasticsearch Inclusion List")
+                    .description(
+                            "The comma-separated list of attributes to include in the data sent "
+                                    + "to Elasticsearch. All other attributes will be excluded. "
+                                    + "This property is mutually exclusive with the Elasticsearch"
+                                    + " Exclusion List."
+                                    + defaultEnvironmentVariableDescription(
+                                            PluginEnvironmentVariable.ELASTICSEARCH_INCLUSION_LIST))
+                    .defaultValue(
+                            PluginEnvironmentVariable.ELASTICSEARCH_INCLUSION_LIST
+                                    .getValue()
+                                    .orElse(null))
+                    .addValidator(
+                            StandardValidators.createListValidator(
+                                    true, true, StandardValidators.ATTRIBUTE_KEY_VALIDATOR))
+                    .build();
+
+    /**
+     * The comma-separated list of attributes to exclude from the data sent to Elasticsearch.
+     * Mutually exclusive with `ELASTICSEARCH_INCLUSION_LIST`.
+     */
+    public static final PropertyDescriptor ELASTICSEARCH_EXCLUSION_LIST =
+            new PropertyDescriptor.Builder()
+                    .name("Elasticsearch Exclusion List")
+                    .displayName("Elasticsearch Exclusion List")
+                    .description(
+                            "The comma-separated list of attributes to exclude from the data sent "
+                                    + "to Elasticsearch. All other attributes will be included. "
+                                    + "This property is mutually exclusive with the Elasticsearch"
+                                    + " Inclusion List."
+                                    + defaultEnvironmentVariableDescription(
+                                            PluginEnvironmentVariable.ELASTICSEARCH_EXCLUSION_LIST))
+                    .defaultValue(
+                            PluginEnvironmentVariable.ELASTICSEARCH_EXCLUSION_LIST
+                                    .getValue()
+                                    .orElse(null))
+                    .addValidator(
+                            StandardValidators.createListValidator(
+                                    true, true, StandardValidators.ATTRIBUTE_KEY_VALIDATOR))
+                    .build();
 
     // -------------------------------------------------------------------------
     // PUBLIC METHODS
@@ -154,6 +218,8 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
         descriptors.add(ELASTICSEARCH_CA_CERT_FINGERPRINT);
         descriptors.add(ELASTICSEARCH_USERNAME);
         descriptors.add(ELASTICSEARCH_PASSWORD);
+        descriptors.add(ELASTICSEARCH_INCLUSION_LIST);
+        descriptors.add(ELASTICSEARCH_EXCLUSION_LIST);
         return descriptors;
     }
 
@@ -181,15 +247,47 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
                         : getRestClient(elasticsearchUrl);
         final ElasticsearchClient client = getElasticsearchClient(restClient);
 
+        // Filter event fields based on inclusion/exclusion list.
+        final ImmutableMap<String, Object> filteredEvent = filterEventFields(event, context);
+
         // Index the event.
         final String id = Long.toString((Long) event.get("event_id"));
         final IndexRequest<Map<String, Object>> indexRequest =
                 new IndexRequest.Builder<Map<String, Object>>()
                         .index(elasticsearchIndex)
                         .id(id)
-                        .document(event)
+                        .document(filteredEvent)
                         .build();
         client.index(indexRequest);
+    }
+
+    @Override
+    protected Collection<ValidationResult> customValidate(
+            final ValidationContext validationContext) {
+        final List<ValidationResult> errors = new ArrayList<>();
+
+        final String inclusionListString =
+                validationContext.getProperty(ELASTICSEARCH_INCLUSION_LIST).getValue();
+        final String exclusionListString =
+                validationContext.getProperty(ELASTICSEARCH_EXCLUSION_LIST).getValue();
+
+        // Ensure the Elasticsearch inclusion and exclusion lists are mutually exclusive.
+        if (!Strings.isNullOrEmpty(inclusionListString)
+                && !Strings.isNullOrEmpty(exclusionListString)) {
+            errors.add(
+                    new ValidationResult.Builder()
+                            // The validation error message is displayed in the NiFi UI as
+                            // "'<subject>' is invalid because <explanation>"
+                            .subject(
+                                    "Mutual exclusion required for `Elasticsearch Inclusion "
+                                            + "List` & `Elasticsearch Exclusion List`.")
+                            .explanation(
+                                    "the inclusion and exclusion lists are mutually exclusive "
+                                            + "(i.e. only one can be specified).")
+                            .valid(false)
+                            .build());
+        }
+        return errors;
     }
 
     // -------------------------------------------------------------------------
@@ -221,10 +319,10 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
      * @return The RestClient object.
      */
     private RestClient getSecureRestClient(
-            URL elasticsearchUrl,
-            String elasticsearchCACertFingerprint,
-            String elasticsearchUsername,
-            String elasticsearchPassword) {
+            final URL elasticsearchUrl,
+            final String elasticsearchCACertFingerprint,
+            final String elasticsearchUsername,
+            final String elasticsearchPassword) {
         final SSLContext sslContext =
                 TransportUtils.sslContextFromCaFingerprint(elasticsearchCACertFingerprint);
         final BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
@@ -247,10 +345,10 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
      * @param elasticsearchUrl The Elasticsearch URL.
      * @return The RestClient object.
      */
-    private RestClient getRestClient(URL elasticsearchUrl) {
-        return RestClient.builder(
-                        new HttpHost(elasticsearchUrl.getHost(), elasticsearchUrl.getPort()))
-                .build();
+    private RestClient getRestClient(final URL elasticsearchUrl) {
+        final HttpHost httpHost =
+                new HttpHost(elasticsearchUrl.getHost(), elasticsearchUrl.getPort());
+        return RestClient.builder(httpHost).build();
     }
 
     /**
@@ -259,9 +357,58 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
      * @param restClient The Elasticsearch REST client.
      * @return The ElasticsearchClient object.
      */
-    private ElasticsearchClient getElasticsearchClient(RestClient restClient) {
+    private ElasticsearchClient getElasticsearchClient(final RestClient restClient) {
         final ElasticsearchTransport transport =
                 new RestClientTransport(restClient, new JacksonJsonpMapper());
         return new ElasticsearchClient(transport);
+    }
+
+    /**
+     * Filter the given event to remove fields based on the `Elasticsearch Inclusion List` or
+     * `Elasticsearch Exclusion List`. If both lists are empty, the event is returned with fields
+     * unmodified.
+     *
+     * @param event The event to filter.
+     * @param context The reporting context.
+     * @return The filtered event.
+     */
+    private ImmutableMap<String, Object> filterEventFields(
+            final Map<String, Object> event, final ReportingContext context) {
+        // Process inclusion rules if present.
+        final String inclusionListString =
+                context.getProperty(ELASTICSEARCH_INCLUSION_LIST).getValue();
+        if (!Strings.isNullOrEmpty(inclusionListString)) {
+            // Only include fields which ARE in the field list.
+            final ImmutableSet<String> fieldsToInclude = extractFieldNames(inclusionListString);
+            final Map<String, Object> filteredMap =
+                    Maps.filterKeys(event, fieldsToInclude::contains);
+            return ImmutableMap.copyOf(filteredMap);
+        }
+
+        // Process exclusion rules if present.
+        final String exclusionListString =
+                context.getProperty(ELASTICSEARCH_EXCLUSION_LIST).getValue();
+        if (!Strings.isNullOrEmpty(exclusionListString)) {
+            // Only include fields which ARE NOT in the field list.
+            final ImmutableSet<String> fieldsToExclude = extractFieldNames(exclusionListString);
+            final Map<String, Object> filteredMap =
+                    Maps.filterKeys(event, k -> !fieldsToExclude.contains(k));
+            return ImmutableMap.copyOf(filteredMap);
+        }
+
+        // No filtering required.
+        return ImmutableMap.copyOf(event);
+    }
+
+    /**
+     * Extract a set of field names from given comma-separated list.
+     *
+     * @param fieldsString The field names, as a comma-separated list.
+     * @return The set of field names.
+     */
+    private ImmutableSet<String> extractFieldNames(final String fieldsString) {
+        // Convert comma-separated list into array, while ignoring whitespace.
+        final Iterable<String> split = COMMA_SPLITTER.split(fieldsString);
+        return ImmutableSet.copyOf(split);
     }
 }
