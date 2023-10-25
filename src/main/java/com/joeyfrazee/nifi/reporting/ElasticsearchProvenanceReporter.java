@@ -237,28 +237,30 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
 
         // Create the Elasticsearch API client.
         final String protocol = elasticsearchUrl.getProtocol();
-        final RestClient restClient =
+        // Wrap RestClient in a try-with-resources block to auto-close it.
+        try (final RestClient restClient =
                 protocol.equals("https")
                         ? getSecureRestClient(
                                 elasticsearchUrl,
                                 elasticsearchCACertFingerprint,
                                 elasticsearchUsername,
                                 elasticsearchPassword)
-                        : getRestClient(elasticsearchUrl);
-        final ElasticsearchClient client = getElasticsearchClient(restClient);
+                        : getRestClient(elasticsearchUrl)) {
+            final ElasticsearchClient client = getElasticsearchClient(restClient);
 
-        // Filter event fields based on inclusion/exclusion list.
-        final ImmutableMap<String, Object> filteredEvent = filterEventFields(event, context);
+            // Filter event fields based on inclusion/exclusion list.
+            final ImmutableMap<String, Object> filteredEvent = filterEventFields(event, context);
 
-        // Index the event.
-        final String id = Long.toString((Long) event.get("event_id"));
-        final IndexRequest<Map<String, Object>> indexRequest =
-                new IndexRequest.Builder<Map<String, Object>>()
-                        .index(elasticsearchIndex)
-                        .id(id)
-                        .document(filteredEvent)
-                        .build();
-        client.index(indexRequest);
+            // Index the event.
+            final String id = Long.toString((Long) event.get("event_id"));
+            final IndexRequest<Map<String, Object>> indexRequest =
+                    new IndexRequest.Builder<Map<String, Object>>()
+                            .index(elasticsearchIndex)
+                            .id(id)
+                            .document(filteredEvent)
+                            .build();
+            client.index(indexRequest);
+        }
     }
 
     @Override
