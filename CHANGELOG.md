@@ -15,6 +15,7 @@ The changelog is applicable from version `1.0.0` onwards.
 ### Fixed
 
 - APED-74: Fix memory issue causing NiFi to crash.
+- APED-66: Fix tag bug workaround in `publish.yml` workflow.
 
 ### Changed
 
