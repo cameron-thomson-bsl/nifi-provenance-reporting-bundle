@@ -19,6 +19,8 @@ The changelog is applicable from version `1.0.0` onwards.
 
 ### Changed
 
+- APED-73: Updated README.
+
 [Commits](https://github.com/brightsparklabs/nifi-provenance-reporting-bundle/compare/2.1.0...develop)
 
 ## [2.1.0] - 2023-09-19
