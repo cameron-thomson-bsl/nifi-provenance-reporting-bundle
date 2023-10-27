@@ -12,17 +12,30 @@ The changelog is applicable from version `1.0.0` onwards.
 
 ### Added
 
+### Fixed
+
+- APED-74: Fix memory issue causing NiFi to crash.
+- APED-66: Fix tag bug workaround in `publish.yml` workflow.
+
+### Changed
+
+- APED-73: Updated README.
+
+[Commits](https://github.com/brightsparklabs/nifi-provenance-reporting-bundle/compare/2.1.0...develop)
+
+## [2.1.0] - 2023-09-19
+
+### Added
+
 - APED-33: Added Changelog Enforcer.
 - APED-44: Add attribute inclusion and exclusion lists for output to Elasticsearch.
-
-### Fixed
 
 ### Changed
 
 - APED-34: Updated README.
 - APED-43: Set default run schedule for `ElasticsearchProvenanceReporter` to `"1 min"`.
 
-[Commits](https://github.com/brightsparklabs/appcli/compare/2.0.0...)
+[Commits](https://github.com/brightsparklabs/nifi-provenance-reporting-bundle/compare/2.0.0...2.1.0)
 
 ---
 
@@ -34,7 +47,7 @@ The changelog is applicable from version `1.0.0` onwards.
 - APED-20: Added gradle-baseline support.
 - APED-23: Support dependabot updates.
 
-[Commits](https://github.com/brightsparklabs/appcli/compare/1.0.0...2.0.0)
+[Commits](https://github.com/brightsparklabs/nifi-provenance-reporting-bundle/compare/1.0.0...2.0.0)
 
 ---
 
@@ -63,6 +76,6 @@ The changelog is applicable from version `1.0.0` onwards.
 
 ### Changed
 
-[Commits](https://github.com/brightsparklabs/appcli/compare/2.0.0...)
+[Commits](https://github.com/brightsparklabs/nifi-provenance-reporting-bundle/compare/2.0.0...)
 
 ---
