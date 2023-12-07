@@ -7,10 +7,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 The changelog is applicable from version `1.0.0` onwards.
 
 ---
-
 ## [Unreleased] - YYYY-MM-DD
 
 ### Added
+
+### Fixed
+
+### Changed
+
+- APED-98: Minor dependency patching.
+
+[Commits](https://github.com/brightsparklabs/nifi-provenance-reporting-bundle/compare/2.1.1...develop)
+
+## [2.1.1] - 2023-10-27
 
 ### Fixed
 
@@ -21,7 +30,7 @@ The changelog is applicable from version `1.0.0` onwards.
 
 - APED-73: Updated README.
 
-[Commits](https://github.com/brightsparklabs/nifi-provenance-reporting-bundle/compare/2.1.0...develop)
+[Commits](https://github.com/brightsparklabs/nifi-provenance-reporting-bundle/compare/2.1.0...2.1.1)
 
 ## [2.1.0] - 2023-09-19
 
