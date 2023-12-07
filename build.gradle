@@ -38,16 +38,16 @@ repositories {
 // -----------------------------------------------------------------------------
 
 ext {
-    NIFI_VERSION = "1.23.2"
+    NIFI_VERSION = "1.24.0"
 }
 
 dependencies {
     api "org.apache.nifi:nifi-utils:${NIFI_VERSION}"
-    api 'co.elastic.clients:elasticsearch-java:8.10.2'
-    api 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
+    api 'co.elastic.clients:elasticsearch-java:8.11.1'
+    api 'com.fasterxml.jackson.core:jackson-databind:2.16.0'
     api 'com.squareup.okhttp:okhttp:2.7.5'
     compileOnly "org.apache.nifi:nifi-api:${NIFI_VERSION}"
-    implementation 'com.google.guava:guava:32.1.2-jre'
+    implementation 'com.google.guava:guava:32.1.3-jre'
 }
 
 // -----------------------------------------------------------------------------

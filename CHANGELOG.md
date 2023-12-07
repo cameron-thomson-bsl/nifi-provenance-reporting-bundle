@@ -14,6 +14,26 @@ The changelog is applicable from version `1.0.0` onwards.
 
 ### Fixed
 
+### Changed
+
+[Commits](https://github.com/brightsparklabs/nifi-provenance-reporting-bundle/compare/2.2.0...develop)
+
+---
+
+## [2.2.0] - 2023-12-08
+
+### Changed
+
+- APED-98: Minor dependency patching.
+
+[Commits](https://github.com/brightsparklabs/nifi-provenance-reporting-bundle/compare/2.1.1...2.2.0)
+
+---
+
+## [2.1.1] - 2023-10-27
+
+### Fixed
+
 - APED-74: Fix memory issue causing NiFi to crash.
 - APED-66: Fix tag bug workaround in `publish.yml` workflow.
 
@@ -21,7 +41,9 @@ The changelog is applicable from version `1.0.0` onwards.
 
 - APED-73: Updated README.
 
-[Commits](https://github.com/brightsparklabs/nifi-provenance-reporting-bundle/compare/2.1.0...develop)
+[Commits](https://github.com/brightsparklabs/nifi-provenance-reporting-bundle/compare/2.1.0...2.1.1)
+
+---
 
 ## [2.1.0] - 2023-09-19
 
