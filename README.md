@@ -11,6 +11,8 @@ NiFi provenance reporting tasks.
     - [ElasticsearchProvenanceReporter](#elasticsearchprovenancereporter)
     - [HttpProvenanceReporter](#httpprovenancereporter)
 - [Todo](#todo)
+- [Publishing](#publishing)
+- [License](#license)
 
 ## Installation
 
@@ -55,6 +57,20 @@ This reporting task can be configured to POST provenance events to an arbitrary 
 - Create provenance event for runs of the reporting task.
 - Example schemas/mappings for data sources (Elasticsearch mapping, Solr schema, JSON schema).
 - Add testing.
+
+## Publishing
+
+```
+# E.g. for version '1.99.2' (MUST START with '1.')
+version=1.99.2
+
+git checkout 1.x.x
+git pull
+git tag -a -m "<TICKET>: Tag version ${version}" ${version}
+git push --tags
+```
+
+This will then be automatically published by the CI server.
 
 ## License
 
