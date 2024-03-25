@@ -16,6 +16,8 @@ The changelog is applicable from version `1.0.0` onwards.
 
 ### Changed
 
+- APED-115: Major dependency patching.
+
 [Commits](https://github.com/brightsparklabs/nifi-provenance-reporting-bundle/compare/2.2.0...develop)
 
 ---
